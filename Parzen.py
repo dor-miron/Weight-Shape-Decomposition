@@ -6,9 +6,13 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import EcalDataIO
+import os
+import plotly.offline as pyo
+pyo.init_notebook_mode()
 
-project_path = Path(__file__).parent
-res_path = project_path / "Parzen_results\\2d_imgs\\"
+# project_path = Path(__file__).parent
+project_path = os.getcwd()
+res_path = project_path # Path for saving 2d image results
 
 
 def psy(x, y, z, data, d_space, sigma):
@@ -215,8 +219,8 @@ def parzen(d, d_space, K_DIM, sigma, N, cut, s_count, disp=False, cmap='blackbod
         disp: Display the 3D image and 2D image of the sample.
         cmap: The colormap to display.
     """
-    k_space, K = get_K(dim=K_DIM, sigma=sigma, disp=disp)
-    L = get_L(K, k_space, disp=disp)
+    k_space, K = get_K(dim=K_DIM, sigma=sigma, disp=False)
+    L = get_L(K, k_space, disp=False)
 
     Psy = conv3d(torch.Tensor(d), K)
     C_2 = conv3d(torch.Tensor(d), L)
@@ -228,8 +232,14 @@ def parzen(d, d_space, K_DIM, sigma, N, cut, s_count, disp=False, cmap='blackbod
     # plt.show()
 
     X, Y, Z = d_space[:, 0], d_space[:, 1], d_space[:, 2]
+    # Apply threshold cut off by percentage
     cut_off = np.percentile(S, cut)
-    print(cut_off)
+
+    # Generate S values histogram
+    # plt.hist(S.flatten(), bins=100)
+    # plt.show()
+    # plt.clf()
+
     fig = go.Figure(data=go.Volume(
         x=X, y=Y, z=Z,
         value=S.ravel(),
@@ -242,32 +252,25 @@ def parzen(d, d_space, K_DIM, sigma, N, cut, s_count, disp=False, cmap='blackbod
     ))
     fig.update_layout(title=f'S: \n N={N}, K_dim = {K_DIM}, sigma={sigma},'
                             f' cut_precent={cut}, cutoff_value={cut_off:.2f}', scene_aspectmode='data')
-    # if disp:
-        # fig.show()
+    if disp:
+        fig.show()
+        
+        # Generate 2d image of XZ plane while summing over Y axis
+        p_space = np.stack([y.ravel() for y in np.mgrid[:220, :42]])
+        X, Z = p_space[0, :], p_space[1, :]
+        data = S[:, 0, :]
 
-    p_space = np.stack([y.ravel() for y in np.mgrid[:220, :42]])
-    X, Z = p_space[0, :], p_space[1, :]
-    data = S[:, 0, :]
+        for i in range(0, 22):
+            data += S[:, i, :]
 
-    for i in range(0, 22):
-        data += S[:, i, :]
-
-    # plt.hist(S.flatten(), bins=100)
-    # plt.show()
-    # S[S < 20] = np.nan
-    # plt.hist(S.flatten(), bins=100)
-    # plt.show()
-    # plt.clf()
-    # return fig
-    plt.scatter(X, Z, c=data, label='Data', cmap=cmap, marker=',')
-    # plt.tight_layout()
-    plt.title(f'S {N} sigma_{sigma}')
-    plt.xlabel('X')
-    plt.ylabel('Z')
-    plt.colorbar()
-    plt.savefig(res_path / f'0{file}\\{N}_Shape_sig_{sigma}test.png')
-    # plt.show()
-    plt.clf()
+        plt.scatter(X, Z, c=data.ravel(), label='Data', cmap=cmap, marker=',')
+        plt.title(f'S {N} sigma_{sigma}')
+        plt.xlabel('X')
+        plt.ylabel('Z')
+        plt.colorbar()
+        plt.savefig(res_path + f'\\{N}_Shape_sig_{sigma}_file_{file}.png')
+        plt.show()
+        plt.clf()
 
     return fig
 
@@ -299,7 +302,7 @@ def get_data(data_dir, file, idx, s_count, disp=True, cmap='blackbody'):
 
 
     # To prevent division by zero - add a small value to the sample.
-    d = d_tens.numpy() + 0.000000000000000000000000000000000000000000001
+    d = d_tens.numpy() + 0.0000000001
 
     # d_space = np.stack([y.ravel() for y in np.mgrid[:110, :11, :21]] + [d.ravel()], axis=1)[:, 0:3]
     d_space = np.stack([y.ravel() for y in np.mgrid[:220, :22, :42]] + [d.ravel()], axis=1)[:, 0:3]
@@ -318,50 +321,40 @@ def get_data(data_dir, file, idx, s_count, disp=True, cmap='blackbody'):
     ))
     fig.update_layout(title=f'Sample: N = {N}', scene_aspectmode='data')
     if disp:
-        # fig.show()
-        cut_off = np.percentile(d, 0.85 * 100)
+        fig.show()
 
+        # Generate 2d image of XZ plane while summing over Y axis
         p_space = np.stack([y.ravel() for y in np.mgrid[:220, :42]])
         X, Z = p_space[0, :], p_space[1, :]
         data = d[:, 0, :]
+        
         for i in range(0, 22):
             data += d[:, i, :]
-        d_tens[d_tens > cut_off] = np.nan
-        plt.scatter(X, Z, c=data, label='Data', cmap=cmap, marker=',')
-        # plt.tight_layout()
+
+        plt.scatter(X, Z, c=data.ravel(), label='Data', cmap=cmap, marker=',')
         plt.xlabel('X')
         plt.ylabel('Z')
         plt.title(f'sample {N}')
         plt.colorbar()
-        plt.savefig(res_path / f'0{file}\\{N}_Sample.png')
+        plt.savefig(res_path + f'\\{N}_Sample_file_{file}.png')
+        plt.show()
         plt.clf()
-        # plt.show()
 
     return d, d_space, N, fig
 
 
 if __name__ == '__main__':
-    SCOUNT = 25
+    SCOUNT = 10
     file = 5
     C_m = 'gray_r'
     data_dir = Path("data\\")
-    disp = False
-    for idx in [276, 6, 718, 761, 369, 666, 93, 832, 120, 270, 552, 477, 521, 84, 132]: # 05 file
-        d, d_space, N, fig_1 = get_data(data_dir, file, idx, SCOUNT, disp=True, cmap=C_m)
-        for sigma in [0.4, 0.6, 0.8, 1, 1.2, 1.5, 2]:
-            # sigma = 1.5
-            cut = 0.9
-            K = 14
-            fig_2 = parzen(d, d_space, K, sigma, N, cut, SCOUNT, disp=disp, cmap=C_m)
-
-
-    file = 3
-    for idx in [340, 575, 13, 211, 626, 153, 839, 270, 7, 100, 620, 400, 11, 750]: # 03 file
+    disp = True
+    K = 14  # Kernel Size
+    cut = 0.9   # Cut off percentage for S
+    for idx in [276, 6, 718, 84]: # 05 file
         d, d_space, N, fig_1 = get_data(data_dir, file, idx, SCOUNT, disp=disp, cmap=C_m)
-        for sigma in [0.4, 0.6, 0.8, 1, 1.2, 1.5, 2]:
-            # sigma = 1.5
-            cut = 0.85
-            K = 14
+        for sigma in [1.1]:
+            # sigma = 1.5   # Set a constant sigma
             fig_2 = parzen(d, d_space, K, sigma, N, cut, SCOUNT, disp=disp, cmap=C_m)
 
     # figures_to_html([fig_1, fig_2], N=N, K=K, sig=sigma)
