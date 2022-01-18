@@ -1,0 +1,7 @@
+SCOUNT: 10
+file: 5
+C_m: 'gray_r'
+data_dir: "data\\"
+disp: True
+K: 14
+cut: 0.9

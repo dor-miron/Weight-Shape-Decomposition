@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import EcalDataIO
 import os
 import plotly.offline as pyo
-pyo.init_notebook_mode()
+# pyo.init_notebook_mode()
 
 # project_path = Path(__file__).parent
 project_path = os.getcwd()
@@ -219,6 +219,7 @@ def parzen(d, d_space, K_DIM, sigma, N, cut, s_count, disp=False, cmap='blackbod
         disp: Display the 3D image and 2D image of the sample.
         cmap: The colormap to display.
     """
+    x_dim, y_dim, z_dim = d.shape
     k_space, K = get_K(dim=K_DIM, sigma=sigma, disp=False)
     L = get_L(K, k_space, disp=False)
 
@@ -256,11 +257,11 @@ def parzen(d, d_space, K_DIM, sigma, N, cut, s_count, disp=False, cmap='blackbod
         fig.show()
         
         # Generate 2d image of XZ plane while summing over Y axis
-        p_space = np.stack([y.ravel() for y in np.mgrid[:220, :42]])
+        p_space = np.stack([y.ravel() for y in np.mgrid[:x_dim, :z_dim]])
         X, Z = p_space[0, :], p_space[1, :]
         data = S[:, 0, :]
 
-        for i in range(0, 22):
+        for i in range(0, y_dim):
             data += S[:, i, :]
 
         plt.scatter(X, Z, c=data.ravel(), label='Data', cmap=cmap, marker=',')
@@ -289,23 +290,22 @@ def get_data(data_dir, file, idx, s_count, disp=True, cmap='blackbody'):
     en_dep = EcalDataIO.ecalmatio(data_dir / f"signal.al.elaser.IP0{file}.edeplist.mat")
     energies = EcalDataIO.energymatio(data_dir / f"signal.al.elaser.IP0{file}.energy.mat")
 
-    # d_tens = torch.zeros((110, 11, 21))  # Formatted as [x_idx, y_idx, z_idx]
-    d_tens = torch.zeros((220, 22, 42))  # Formatted as [x_idx, y_idx, z_idx]
-
-    key = list(en_dep.keys())[idx]
-    tmp = en_dep[key]
-    en = energies[key]
+    tmp = en_dep[event_id]
+    en = energies[event_id]
     N = len(en)
 
-    for z, x, y in tmp:
-        d_tens[2*x, 2*y, 2*z] = tmp[(z, x, y)]
+    x_dim, y_dim, z_dim = 110, 11, 21
+    # z_dim, x_dim, y_dim = 220, 22, 42
+    d_tens = torch.zeros((z_dim, x_dim, y_dim))
 
+    # these lines look like spacing / expansion
+    # for z, x, y in tmp:
+    #     d_tens[2*x, 2*y, 2*z] = tmp[(z, x, y)]
 
     # To prevent division by zero - add a small value to the sample.
     d = d_tens.numpy() + 0.0000000001
 
-    # d_space = np.stack([y.ravel() for y in np.mgrid[:110, :11, :21]] + [d.ravel()], axis=1)[:, 0:3]
-    d_space = np.stack([y.ravel() for y in np.mgrid[:220, :22, :42]] + [d.ravel()], axis=1)[:, 0:3]
+    d_space = np.stack([y.ravel() for y in np.mgrid[:z_dim, :x_dim, :y_dim]] + [d.ravel()], axis=1)[:, 0:3]
 
     X, Y, Z = d_space[:, 0], d_space[:, 1], d_space[:, 2]
 
@@ -324,11 +324,11 @@ def get_data(data_dir, file, idx, s_count, disp=True, cmap='blackbody'):
         fig.show()
 
         # Generate 2d image of XZ plane while summing over Y axis
-        p_space = np.stack([y.ravel() for y in np.mgrid[:220, :42]])
+        p_space = np.stack([y.ravel() for y in np.mgrid[:x_dim, :z_dim]])
         X, Z = p_space[0, :], p_space[1, :]
         data = d[:, 0, :]
         
-        for i in range(0, 22):
+        for i in range(0, y_dim):
             data += d[:, i, :]
 
         plt.scatter(X, Z, c=data.ravel(), label='Data', cmap=cmap, marker=',')
@@ -344,17 +344,26 @@ def get_data(data_dir, file, idx, s_count, disp=True, cmap='blackbody'):
 
 
 if __name__ == '__main__':
+    # json.loads(r'C:\Users\dor00\PycharmProjects\Weight-Shape-Decomposition\config.json')
+
     SCOUNT = 10
     file = 5
     C_m = 'gray_r'
     data_dir = Path("data\\")
-    disp = True
+    display_raw_data = True
+    display_shape = True
     K = 14  # Kernel Size
     cut = 0.9   # Cut off percentage for S
-    for idx in [276, 6, 718, 84]: # 05 file
-        d, d_space, N, fig_1 = get_data(data_dir, file, idx, SCOUNT, disp=disp, cmap=C_m)
-        for sigma in [1.1]:
-            # sigma = 1.5   # Set a constant sigma
-            fig_2 = parzen(d, d_space, K, sigma, N, cut, SCOUNT, disp=disp, cmap=C_m)
+
+    en_dep = EcalDataIO.ecalmatio(data_dir / f"signal.al.elaser.IP0{file}.edeplist.mat")
+    energies = EcalDataIO.energymatio(data_dir / f"signal.al.elaser.IP0{file}.energy.mat")
+
+    elihu_chosen_event_ids = ['708', '813', '261', '103']
+    event_ids = ['813']
+    sigma_list = [1.1]
+    for event_id in event_ids:
+        d, d_space, N, fig_1 = get_data(data_dir, file, event_id, SCOUNT, disp=display_raw_data, cmap=C_m)
+        for sigma in sigma_list:
+            fig_2 = parzen(d, d_space, K, sigma, N, cut, SCOUNT, disp=display_shape, cmap=C_m)
 
     # figures_to_html([fig_1, fig_2], N=N, K=K, sig=sigma)

@@ -1,2 +1,5 @@
 /Parzen_results/
 /venv/
+*.png
+.idea/
+__pycache__/
