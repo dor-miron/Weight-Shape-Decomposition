@@ -7,7 +7,6 @@ import torch
 import torch.nn.functional as F
 import EcalDataIO
 import os
-import streamlit as st
 import plotly.offline as pyo
 
 # pyo.init_notebook_mode()
@@ -225,19 +224,14 @@ def weight_shape_decomp(d, K_DIM, sigma):
     return psi, V, W, S
 
 
-def plot_all(psi, V, W, S, PxS, P_PxS_dec, to_plot_bool=(True, True, True, True, True)):
-    if sum(to_plot_bool) == 0:
-        return
-
+def plot_all(psi, V, W, S, to_plot_bool=(True, True, True, True)):
     to_plot_full_list = np.array([
-        (psi, 'Psi'),
+        (psi, 'psi'),
         (V, 'V'),
         (W, 'Weight'),
         (S, 'Shape'),
-        (PxS, 'Psi x Shape'),
-        (P_PxS_dec, 'PxS - P')
-    ], dtype='object')
-    to_plot_list = to_plot_full_list[to_plot_bool, :]
+    ])
+    to_plot_list = to_plot_full_list[to_plot_bool]
 
     fig, ax_list = plt.subplots(len(to_plot_list), 1, sharey='row')
     if not hasattr(ax_list, '__iter__'):
@@ -250,7 +244,7 @@ def plot_all(psi, V, W, S, PxS, P_PxS_dec, to_plot_bool=(True, True, True, True,
         plt.colorbar(img, ax=ax)
 
     fig.tight_layout()
-    return fig
+    plt.show()
 
 
 def get_data(data_tuple, event_id, t=1):
@@ -274,7 +268,7 @@ def main():
 
     file = 5
     data_dir = Path("data\\")
-    K = 13  # Kernel Size
+    K = 14  # Kernel Size
     cut = 0.9  # Cut off percentage for S
 
     en_dep = EcalDataIO.ecalmatio(data_dir / f"signal.al.elaser.IP0{file}.edeplist.mat")
@@ -287,8 +281,7 @@ def main():
 
     raw_data = get_data(data_tuple, event_id, t=1)
     psi, V, W, S = weight_shape_decomp(raw_data, K, sigma)
-    fig = plot_all(psi, V, W, S)
-    fig.show()
+    plot_all(psi, V, W, S)
 
     # figures_to_html([fig_1, fig_2], N=N, K=K, sig=sigma)
 
