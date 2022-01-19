@@ -1,15 +1,10 @@
 # Weight-Shape decomposition
 
+[Interactive parameter explorer](https://share.streamlit.io/dor-miron/weight-shape-decomposition)
+
 ## Summary
 This project is meant to apply the methods given in the following [article](https://www.sciencedirect.com/science/article/pii/S0031320318301249?via%3Dihub)
 on the positron showers dataset and display the shape component generated.
-
-## Requirements
-plotly>=5.4.0
-matplotlib>=3.5.0
-numpy>=1.20.3
-torch>=1.10.0
-scipy>=1.6.3
 
 
 ## Data
@@ -37,8 +32,8 @@ scipy>=1.6.3
 ## Display
 
 * There are two display method we explored:
-    1. Using [Potly](https://www.sciencedirect.com/science/article/pii/S0031320318301249?via%3Dihub) we display the full 3D image of the sample and the Shape decomposition.
-    2. Summing over the Y axis to generate a 2D image.
+    1. Using [Plotly](https://www.sciencedirect.com/science/article/pii/S0031320318301249?via%3Dihub) we display the full 3D image of the sample and the Shape decomposition.
+    2. Summing over the Y axis to generate a 2D image - Interactive parameter explorer available through [Streamlit](https://share.streamlit.io/dor-miron/weight-shape-decomposition)
     
 * Both methods are controlled by the 'disp' parameter.
 
