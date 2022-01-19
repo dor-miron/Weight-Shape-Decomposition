@@ -225,7 +225,7 @@ def weight_shape_decomp(d, K_DIM, sigma):
     return psi, V, W, S
 
 
-def plot_all(psi, V, W, S, PxS, P_PxS_dec, to_plot_bool=(True, True, True, True, True, True)):
+def plot_all(psi, V, W, S, PxS, P_PxS_dec, to_plot_bool=(True, True, True, True, True, True), xlines=None):
     if sum(to_plot_bool) == 0:
         return
 
@@ -238,7 +238,6 @@ def plot_all(psi, V, W, S, PxS, P_PxS_dec, to_plot_bool=(True, True, True, True,
         (P_PxS_dec, 'PxS - P')
     ], dtype='object')
 
-    x = 5 if True else 2
     to_plot_list = to_plot_full_list if (to_plot_bool is None) \
         else to_plot_full_list[to_plot_bool, :]
 
@@ -249,6 +248,11 @@ def plot_all(psi, V, W, S, PxS, P_PxS_dec, to_plot_bool=(True, True, True, True,
     for ind, ax in enumerate(ax_list):
         data, title = to_plot_list[ind]
         img = ax.imshow(data.sum(axis=1).T, origin='lower', aspect='auto', interpolation='antialiased')
+
+        if xlines is not None:
+            for x_val in xlines:
+                ax.axvline(x_val)
+
         ax.set_title(title)
         plt.colorbar(img, ax=ax)
 
@@ -269,13 +273,20 @@ def get_data(data_tuple, event_id, t=1):
     for z, x, y in tmp:
         d_tens[t * x, t * y, t * z] = tmp[(z, x, y)]
 
-    return d_tens + 1e-9
+    return d_tens + 1e-9, np.array(en)
+
+
+def energy_to_x(e):
+    return 0.2 * (684.2 / e - 41.63)
+
+
+def calculate_on_data_set(data_tuple, sigma, kernel_size):
+    pass
 
 
 def main():
-
     file = 5
-    K = 13  # Kernel Size
+    kernel_size = 13  # Kernel Size
     cut = 0.9  # Cut off percentage for S
 
     data_dir = path.join(path.curdir, 'data')
@@ -287,12 +298,14 @@ def main():
     event_id = '813'
     sigma = 1.1
 
-    raw_data = get_data(data_tuple, event_id, t=1)
-    P, V, W, S = weight_shape_decomp(raw_data, K, sigma)
-    fig = plot_all(P, V, W, S, P*S, P - P*S)
+    raw_data, e_list = get_data(data_tuple, event_id, t=1)
+    P, V, W, S = weight_shape_decomp(raw_data, kernel_size, sigma)
+    x_values = energy_to_x(e_list)
+    fig = plot_all(P, V, W, S, P*S, P - P*S, [True, False, False, True, True, False], xlines=x_values)
     fig.show()
 
     # figures_to_html([fig_1, fig_2], N=N, K=K, sig=sigma)
+
 
 if __name__ == '__main__':
     main()
