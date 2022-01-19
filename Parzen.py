@@ -1,4 +1,4 @@
-from pathlib import Path
+from os import path
 from typing import Callable
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
@@ -225,7 +225,7 @@ def weight_shape_decomp(d, K_DIM, sigma):
     return psi, V, W, S
 
 
-def plot_all(psi, V, W, S, PxS, P_PxS_dec, to_plot_bool=(True, True, True, True, True)):
+def plot_all(psi, V, W, S, PxS, P_PxS_dec, to_plot_bool=(True, True, True, True, True, True)):
     if sum(to_plot_bool) == 0:
         return
 
@@ -237,7 +237,10 @@ def plot_all(psi, V, W, S, PxS, P_PxS_dec, to_plot_bool=(True, True, True, True,
         (PxS, 'Psi x Shape'),
         (P_PxS_dec, 'PxS - P')
     ], dtype='object')
-    to_plot_list = to_plot_full_list[to_plot_bool, :]
+
+    x = 5 if True else 2
+    to_plot_list = to_plot_full_list if (to_plot_bool is None) \
+        else to_plot_full_list[to_plot_bool, :]
 
     fig, ax_list = plt.subplots(len(to_plot_list), 1, sharey='row')
     if not hasattr(ax_list, '__iter__'):
@@ -270,15 +273,14 @@ def get_data(data_tuple, event_id, t=1):
 
 
 def main():
-    # json.loads(r'C:\Users\dor00\PycharmProjects\Weight-Shape-Decomposition\config.json')
 
     file = 5
-    data_dir = Path("data\\")
     K = 13  # Kernel Size
     cut = 0.9  # Cut off percentage for S
 
-    en_dep = EcalDataIO.ecalmatio(data_dir / f"signal.al.elaser.IP0{file}.edeplist.mat")
-    energies = EcalDataIO.energymatio(data_dir / f"signal.al.elaser.IP0{file}.energy.mat")
+    data_dir = path.join(path.curdir, 'data')
+    en_dep = EcalDataIO.ecalmatio(path.join(data_dir, f"signal.al.elaser.IP0{file}.edeplist.mat"))
+    energies = EcalDataIO.energymatio(path.join(data_dir, f"signal.al.elaser.IP0{file}.energy.mat"))
     data_tuple = (en_dep, energies)
 
     elihu_chosen_event_ids = ['708', '813', '261', '103']
@@ -286,8 +288,8 @@ def main():
     sigma = 1.1
 
     raw_data = get_data(data_tuple, event_id, t=1)
-    psi, V, W, S = weight_shape_decomp(raw_data, K, sigma)
-    fig = plot_all(psi, V, W, S)
+    P, V, W, S = weight_shape_decomp(raw_data, K, sigma)
+    fig = plot_all(P, V, W, S, P*S, P - P*S)
     fig.show()
 
     # figures_to_html([fig_1, fig_2], N=N, K=K, sig=sigma)

@@ -1,3 +1,5 @@
+from os import path
+
 import streamlit as st
 
 import EcalDataIO
@@ -10,7 +12,6 @@ plt.rcParams['figure.figsize'] = [12, 8]
 plt.rcParams['figure.dpi'] = 100
 
 file = 5
-data_dir = Path("data\\")
 
 sigma = st.sidebar.slider('Sigma', min_value=0.1, max_value=2.0, step=0.1, value=1.0)
 
@@ -25,8 +26,9 @@ to_plot_bool = [columns[0].checkbox(array_names[i], value=default_plot[i]) for i
 elihu_chosen_event_ids = ['708', '813', '261', '103']
 event_id = columns[1].radio('Event ID', elihu_chosen_event_ids, index=1)
 
-en_dep = EcalDataIO.ecalmatio(data_dir / f"signal.al.elaser.IP0{file}.edeplist.mat")
-energies = EcalDataIO.energymatio(data_dir / f"signal.al.elaser.IP0{file}.energy.mat")
+data_dir = path.join(path.curdir, 'data')
+en_dep = EcalDataIO.ecalmatio(path.join(data_dir, f"signal.al.elaser.IP0{file}.edeplist.mat"))
+energies = EcalDataIO.energymatio(path.join(data_dir, f"signal.al.elaser.IP0{file}.energy.mat"))
 data_tuple = (en_dep, energies)
 
 # Cache
