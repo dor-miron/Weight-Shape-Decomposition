@@ -131,35 +131,18 @@ def gkern(l=5, sig=1.):
 
 #####################################################################
 
-
-def get_K(dim=7, sigma=1, disp=False):
-    """
-    Generates the K kernel as defined in the article (Gaussian kernel)
-    Parameters:
-        dim: Kernel will be dimXdimXdim in dimensions.
-        sigma: The sigma parameter.
-        disp: Wether to display a 3D image of the kernel.
-    """
-    KK = int(dim / 2)
+def get_gaussian_kernel(dim=7, sigma=(1, 1, 1)):
+    origin = np.full(3, int(dim / 2))
 
     kernel = np.zeros((dim, dim, dim))
-    k_space = np.stack([y.ravel() for y in np.mgrid[:dim, :dim, :dim]] + [kernel.ravel()], axis=1)[:, 0:3]
+    k_space = np.stack([y.ravel() for y in np.mgrid[:dim, :dim, :dim]], axis=1)[:, 0:3]
 
     for x, y, z in k_space:
-        diff = -np.linalg.norm(np.asarray((x, y, z) - np.asarray((KK, KK, KK))), axis=0, ord=2)
-        a = np.exp(diff / (2 * (sigma ** 2)))
+        translated_xyz = np.array([x, y, z]) - origin
+        tx, ty, tz = translated_xyz
+        denominator = np.array(sigma) ** 2
+        a = np.exp(-(tx**2) / denominator[0] - (ty**2) / denominator[1] - (tz**2) / denominator[2])
         kernel[int(x), int(y), int(z)] = a
-
-    if disp:
-        fig = go.Figure(data=go.Volume(
-            x=k_space[:, 0], y=k_space[:, 1], z=k_space[:, 2],
-            value=kernel.ravel(),
-            isomin=np.min(kernel),
-            isomax=np.max(kernel),
-            opacity=0.1,
-            surface_count=25,
-        ))
-        fig.show()
 
     return k_space, kernel
 
@@ -213,7 +196,7 @@ def figures_to_html(figs, filename="N=5 .html", N=0, K=0, sig=0):
 
 
 def weight_shape_decomp(d, K_DIM, sigma):
-    k_space, K = get_K(dim=K_DIM, sigma=sigma, disp=False)
+    k_space, K = get_gaussian_kernel(dim=K_DIM, sigma=sigma)
     L = get_L(K, k_space, disp=False)
 
     psi = conv3d(torch.Tensor(d), K)
@@ -225,21 +208,9 @@ def weight_shape_decomp(d, K_DIM, sigma):
     return psi, V, W, S
 
 
-def plot_all(psi, V, W, S, PxS, P_PxS_dec, to_plot_bool=(True, True, True, True, True, True), xlines=None):
-    if sum(to_plot_bool) == 0:
+def plot_all(to_plot_list, xlines=None):
+    if len(to_plot_list) == 0:
         return
-
-    to_plot_full_list = np.array([
-        (psi, 'Psi'),
-        (V, 'V'),
-        (W, 'Weight'),
-        (S, 'Shape'),
-        (PxS, 'Psi x Shape'),
-        (P_PxS_dec, 'PxS - P')
-    ], dtype='object')
-
-    to_plot_list = to_plot_full_list if (to_plot_bool is None) \
-        else to_plot_full_list[to_plot_bool, :]
 
     fig, ax_list = plt.subplots(len(to_plot_list), 1, sharey='row')
     if not hasattr(ax_list, '__iter__'):
@@ -264,14 +235,14 @@ def get_data(data_tuple, event_id, t=1):
     """ t is the expansion ratio """
     en_dep, energies = data_tuple
 
-    tmp = en_dep[event_id]
+    location2value = en_dep[event_id]
     en = energies[event_id]
 
     x_dim, y_dim, z_dim = t * 110, t * 11, t * 21
-    d_tens = torch.zeros((x_dim, y_dim, z_dim))
+    d_tens = np.zeros((x_dim, y_dim, z_dim))
 
-    for z, x, y in tmp:
-        d_tens[t * x, t * y, t * z] = tmp[(z, x, y)]
+    for (z, x, y), value in location2value.items():
+        d_tens[t * x, t * y, t * z] = value
 
     return d_tens + 1e-9, np.array(en)
 
