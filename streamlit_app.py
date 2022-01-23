@@ -5,7 +5,7 @@ from Parzen import plot_all, weight_shape_decomp, get_data, energy_to_x
 import numpy as np
 from matplotlib import pyplot as plt
 
-""" PYPLOT PARAMS """
+# """ PYPLOT PARAMS """
 plt.rcParams['figure.facecolor'] = 'black'
 TEXT_COLOR = 'white'
 plt.rcParams['text.color'] = TEXT_COLOR
@@ -16,14 +16,14 @@ plt.rcParams['figure.figsize'] = [12, 14]
 # plt.rcParams['figure.dpi'] = 100
 plt.rcParams['font.size'] = "22"
 
-""" GET DATA """
+# """ GET DATA """
 file = 5
 data_dir = path.join(path.curdir, 'data')
 en_dep = EcalDataIO.ecalmatio(path.join(data_dir, f"signal.al.elaser.IP0{file}.edeplist.mat"))
 energies = EcalDataIO.energymatio(path.join(data_dir, f"signal.al.elaser.IP0{file}.energy.mat"))
 data_tuple = (en_dep, energies)
 
-""" INIT WIDGETS """
+# """ INIT WIDGETS """
 columns1 = st.sidebar.columns(2)
 expansion_factor = columns1[0].radio('Expansion Factor', [1, 2, 3], index=0)
 plot_labels = columns1[1].checkbox('Plot Labels', value=True)
@@ -46,7 +46,7 @@ def event2label(event_id):
     return f'{event_id} - {len(energies[event_id])}'
 event_id = columns2[1].radio('Event ID', ordered_event_id_list, index=1, format_func=event2label)
 
-""" CALCULATE ARRAYS """
+# """ CALCULATE ARRAYS """
 raw_data, e_list = get_data(data_tuple, event_id, t=expansion_factor)
 sigma_effective = expansion_factor * np.array(sigma)
 kernel_size_effective = (kernel_size - 1) * 2 + 1
@@ -57,7 +57,7 @@ PxS2 = PxS * S
 st.subheader(f'N={len(e_list)}')
 x_values = energy_to_x(e_list)
 
-""" PREPARE FOR PLOT """
+# """ PREPARE FOR PLOT """
 data_arrays = [raw_data, P, V, W, S, PxS, PxS2]
 assert np.all(len(array_names) == len(some_array) for some_array in [default_plot, data_arrays])
 data_name_tuple = np.array(
@@ -66,7 +66,7 @@ data_name_tuple = np.array(
 to_plot_list = data_name_tuple if (to_plot_bool is None) \
         else data_name_tuple[to_plot_bool, :]
 
-""" PLOT """
+# """ PLOT """
 xlines = x_values * expansion_factor if plot_labels else None
 fig = plot_all(to_plot_list, xlines=xlines)
 st.pyplot(fig)
