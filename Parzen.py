@@ -3,12 +3,17 @@ from typing import Callable
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.optimize import curve_fit
+import sklearn as sklearn
 import torch
 import torch.nn.functional as F
+from scipy.signal import find_peaks
+
 import EcalDataIO
 import os
 import streamlit as st
 import plotly.offline as pyo
+from sklearn import mixture
 
 # pyo.init_notebook_mode()
 
@@ -207,6 +212,14 @@ def weight_shape_decomp(d, K_DIM, sigma):
 
     return psi, V, W, S
 
+def count_clusters_by_z_line(data, z_value, max_frac=30):
+    data_sum_y = data.sum(axis=1)
+    chosen_line = data_sum_y[:, z_value]
+    max_value = np.max(chosen_line)
+    peaks_x = find_peaks(chosen_line, height=max_value/max_frac)[0]
+    peaks_y = chosen_line[peaks_x]
+
+    return peaks_x, peaks_y, chosen_line
 
 def plot_all(to_plot_list, xlines=None):
     if len(to_plot_list) == 0:
@@ -231,11 +244,17 @@ def plot_all(to_plot_list, xlines=None):
     return fig
 
 
+def calc_sum_3d(data_tuple, event_id):
+    calo, energies = data_tuple
+    values = list(calo[event_id].values())
+    return sum(values)
+
+
 def get_data(data_tuple, event_id, t=1):
     """ t is the expansion ratio """
-    en_dep, energies = data_tuple
+    calo, energies = data_tuple
 
-    location2value = en_dep[event_id]
+    location2value = calo[event_id]
     en = energies[event_id]
 
     x_dim, y_dim, z_dim = t * 110, t * 11, t * 21
@@ -248,12 +267,13 @@ def get_data(data_tuple, event_id, t=1):
 
 
 def energy_to_x(e):
-    return 0.2 * (684.2 / e - 41.63)
+    a, b, c = 0.2, 684.2, 41.63
+    return a * (b / e - c)
 
 
-def calculate_on_data_set(data_tuple, sigma, kernel_size):
-    pass
-
+def x_to_energy(x):
+    a, b, c = 0.2, 684.2, 41.63
+    return a*b / (x + a*c)
 
 def main():
     file = 5
