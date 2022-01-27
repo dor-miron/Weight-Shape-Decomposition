@@ -8,7 +8,7 @@ import sklearn as sklearn
 import torch
 import torch.nn.functional as F
 from scipy.signal import find_peaks
-
+from numba import jit
 import EcalDataIO
 import os
 import streamlit as st
@@ -175,7 +175,7 @@ def get_L(K, k_space, disp=False):
 
     return L_kernel
 
-
+# @jit
 def conv3d(data, kernel):
     """Preform a 3D convolution on data using the given kernel, using the functional interface format of pytorch."""
     # Shaping
@@ -212,7 +212,7 @@ def weight_shape_decomp(d, K_DIM, sigma):
 
     return psi, V, W, S
 
-def count_clusters_by_z_line(data, z_value, max_frac=30):
+def count_clusters_by_z_line(data, z_value, max_frac=10):
     data_sum_y = data.sum(axis=1)
     chosen_line = data_sum_y[:, z_value]
     max_value = np.max(chosen_line)
@@ -250,20 +250,16 @@ def calc_sum_3d(data_tuple, event_id):
     return sum(values)
 
 
-def get_data(data_tuple, event_id, t=1):
+def get_data(calo_event, energy_event, t=1):
     """ t is the expansion ratio """
-    calo, energies = data_tuple
-
-    location2value = calo[event_id]
-    en = energies[event_id]
 
     x_dim, y_dim, z_dim = t * 110, t * 11, t * 21
     d_tens = np.zeros((x_dim, y_dim, z_dim))
 
-    for (z, x, y), value in location2value.items():
+    for (z, x, y), value in calo_event.items():
         d_tens[t * x, t * y, t * z] = value
 
-    return d_tens + 1e-9, np.array(en)
+    return d_tens + 1e-9, np.array(energy_event)
 
 
 def energy_to_x(e):
@@ -283,13 +279,13 @@ def main():
     data_dir = path.join(path.curdir, 'data')
     en_dep = EcalDataIO.ecalmatio(path.join(data_dir, f"signal.al.elaser.IP0{file}.edeplist.mat"))
     energies = EcalDataIO.energymatio(path.join(data_dir, f"signal.al.elaser.IP0{file}.energy.mat"))
-    data_tuple = (en_dep, energies)
 
     elihu_chosen_event_ids = ['708', '813', '261', '103']
     event_id = '813'
     sigma = 1.1
 
-    raw_data, e_list = get_data(data_tuple, event_id, t=1)
+    calo_event, energy_event = en_dep[event_id], energies[event_id]
+    raw_data, e_list = get_data(calo_event, energy_event, t=1)
     P, V, W, S = weight_shape_decomp(raw_data, kernel_size, sigma)
     x_values = energy_to_x(e_list)
     fig = plot_all(P, V, W, S, P*S, P - P*S, [True, False, False, True, True, False], xlines=x_values)

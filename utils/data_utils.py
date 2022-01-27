@@ -1,7 +1,6 @@
 import EcalDataIO
 
-
-def get_data_by_maximal_number_of_particles(max_n, min_n=1, data_and_name_tuple_list=None):
+def get_data_by_maximal_number_of_particles(max_n=float('inf'), min_n=1, data_and_name_tuple_list=None):
     if data_and_name_tuple_list is None:
         data_and_name_tuple_list = [
             (r'C:\Users\dor00\PycharmProjects\Weight-Shape-Decomposition\data\signal.al.elaser.IP05.edeplist.mat',
