@@ -3,23 +3,10 @@ from typing import Callable
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.optimize import curve_fit
-import sklearn as sklearn
 import torch
 import torch.nn.functional as F
 from scipy.signal import find_peaks
-from numba import jit
-import EcalDataIO
-import os
-import streamlit as st
-import plotly.offline as pyo
-from sklearn import mixture
-
-# pyo.init_notebook_mode()
-
-# project_path = Path(__file__).parent
-project_path = os.getcwd()
-res_path = project_path  # Path for saving 2d image results
+from utils import EcalDataIO
 
 
 def psy(x, y, z, data, d_space, sigma):
@@ -200,17 +187,24 @@ def figures_to_html(figs, filename="N=5 .html", N=0, K=0, sig=0):
     dashboard.write("</body></html>" + "\n")
 
 
-def weight_shape_decomp(d, K_DIM, sigma):
+def weight_shape_decomp(raw, K_DIM, sigma, get_S=True, get_W=True):
     k_space, K = get_gaussian_kernel(dim=K_DIM, sigma=sigma)
     L = get_L(K, k_space, disp=False)
 
-    psi = conv3d(torch.Tensor(d), K)
-    C_2 = conv3d(torch.Tensor(d), L)
-    V = C_2 / psi
-    S = np.exp(-V)
-    W = psi / S
+    P = conv3d(torch.Tensor(raw), K)
+    C_2 = conv3d(torch.Tensor(raw), L)
+    V = C_2 / P
+    if get_S:
+        S = np.exp(-V)
+    else:
+        return P, V
 
-    return psi, V, W, S
+    if get_W:
+        W = P / S
+    else:
+        return P, V, S
+
+    return P, V, S, W
 
 def count_clusters_by_z_line(data, z_value, max_frac=10):
     data_sum_y = data.sum(axis=1)
@@ -250,8 +244,10 @@ def calc_sum_3d(data_tuple, event_id):
     return sum(values)
 
 
-def get_data(calo_event, energy_event, t=1):
+def convert_to_array_and_expand(calo_event, t=1, threshold=0):
     """ t is the expansion ratio """
+
+    # assert
 
     x_dim, y_dim, z_dim = t * 110, t * 11, t * 21
     d_tens = np.zeros((x_dim, y_dim, z_dim))
@@ -259,24 +255,29 @@ def get_data(calo_event, energy_event, t=1):
     for (z, x, y), value in calo_event.items():
         d_tens[t * x, t * y, t * z] = value
 
-    return d_tens + 1e-9, np.array(energy_event)
+    d_tens[d_tens < threshold] = 0
+
+    return d_tens + np.finfo(d_tens.dtype).eps
 
 
 def energy_to_x(e):
+    e = np.array(e)
     a, b, c = 0.2, 684.2, 41.63
     return a * (b / e - c)
 
 
 def x_to_energy(x):
+    x = np.array(x)
     a, b, c = 0.2, 684.2, 41.63
     return a*b / (x + a*c)
+
 
 def main():
     file = 5
     kernel_size = 13  # Kernel Size
     cut = 0.9  # Cut off percentage for S
 
-    data_dir = path.join(path.curdir, 'data')
+    data_dir = path.join(path.curdir, '../data')
     en_dep = EcalDataIO.ecalmatio(path.join(data_dir, f"signal.al.elaser.IP0{file}.edeplist.mat"))
     energies = EcalDataIO.energymatio(path.join(data_dir, f"signal.al.elaser.IP0{file}.energy.mat"))
 
@@ -285,8 +286,8 @@ def main():
     sigma = 1.1
 
     calo_event, energy_event = en_dep[event_id], energies[event_id]
-    raw_data, e_list = get_data(calo_event, energy_event, t=1)
-    P, V, W, S = weight_shape_decomp(raw_data, kernel_size, sigma)
+    raw_data, e_list = convert_to_array_and_expand(calo_event, energy_event, t=1)
+    P, V, S, W = weight_shape_decomp(raw_data, kernel_size, sigma)
     x_values = energy_to_x(e_list)
     fig = plot_all(P, V, W, S, P*S, P - P*S, [True, False, False, True, True, False], xlines=x_values)
     fig.show()
