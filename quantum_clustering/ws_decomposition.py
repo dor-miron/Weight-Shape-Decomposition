@@ -244,7 +244,7 @@ def calc_sum_3d(data_tuple, event_id):
     return sum(values)
 
 
-def convert_to_array_and_expand(calo_event, t=1, threshold=0):
+def convert_to_array_and_expand(calo_event, t=1):
     """ t is the expansion ratio """
 
     # assert
@@ -255,9 +255,7 @@ def convert_to_array_and_expand(calo_event, t=1, threshold=0):
     for (z, x, y), value in calo_event.items():
         d_tens[t * x, t * y, t * z] = value
 
-    d_tens[d_tens < threshold] = 0
-
-    return d_tens + np.finfo(d_tens.dtype).eps
+    return d_tens
 
 
 def energy_to_x(e):

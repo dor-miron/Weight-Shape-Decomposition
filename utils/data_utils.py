@@ -34,6 +34,11 @@ class Dataset:
             energies = EcalDataIO.energymatio(energy_path)
 
         for event_id in calo.keys():
+            for loc, value in calo[event_id].items():
+                calo[event_id][loc] = value * 1000
+            energies[event_id] = (energy * 1000 for energy in energies)
+
+        for event_id in calo.keys():
             new_event_id = self.event_full_key(dataset_name, event_id)
             self.calo_dict[new_event_id] = calo[event_id]
             self.energies_dict[new_event_id] = energies[event_id]

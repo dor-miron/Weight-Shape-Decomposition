@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import pandas as pd
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.base import BaseEstimator
@@ -12,7 +14,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from utils.other_utils import get_sum_per_island, sigfiground
+from utils.other_utils import sigfiground
 
 
 class IsolationEstimator(BaseEstimator):
@@ -66,18 +68,19 @@ class IslandEstimator(BaseEstimator):
     def fit(self, x, y):
         pass
 
-    def predict_one(self, event, return_data=False):
+    def predict_one(self, event, return_raw_1d=False, return_filtered_1d=False):
         NO_CLUSTER = -1
-        raw_data = convert_to_array_and_expand(event, t=1,
-                                               threshold=self.raw_threshold)
-        raw_data_1d = np.array(raw_data).sum(axis=2).sum(axis=1)
+        raw_data = convert_to_array_and_expand(event, t=1)
+        filtered_data = deepcopy(raw_data)
+        filtered_data[raw_data < self.raw_threshold] = 0
+        filtered_data_1d = np.array(filtered_data).sum(axis=2).sum(axis=1)
 
-        ind2cluster = np.full_like(raw_data_1d, NO_CLUSTER)
+        ind2cluster = np.full_like(filtered_data_1d, NO_CLUSTER)
         cluster_count = 0
-        indices_sorted_by_value = [ind for ind, val in sorted(enumerate(raw_data_1d), key=lambda x: x[1],
+        indices_sorted_by_value = [ind for ind, val in sorted(enumerate(filtered_data_1d), key=lambda x: x[1],
                                                               reverse=True)]
         for cur_ind in indices_sorted_by_value:
-            if raw_data_1d[cur_ind] < self.cluster_threshold:
+            if filtered_data_1d[cur_ind] < self.cluster_threshold:
                 continue
             if ind2cluster[cur_ind] == NO_CLUSTER:
                 ind2cluster[cur_ind] = cluster_count
@@ -90,8 +93,10 @@ class IslandEstimator(BaseEstimator):
                     continue
 
         outputs = [ind2cluster, cluster_count]
-        if return_data:
-            outputs.append(raw_data_1d)
+        if return_raw_1d:
+            outputs.append(np.array(raw_data).sum(axis=2).sum(axis=1))
+        if return_filtered_1d:
+            outputs.append(filtered_data_1d)
         return outputs
 
     def predict(self, x):

@@ -1,7 +1,45 @@
 import random, string
 
+import pandas as pd
+from lmfit.models import LinearModel, Model
 import numpy as np
 import sigfig
+import plotly.express as px
+
+def get_sum_per_cluster(array, ind2cluster, ignore_values=(-1,)):
+    unique_array = np.unique(ind2cluster)
+    sum_list = list()
+    for unique_val in unique_array:
+        if unique_val in ignore_values:
+            continue
+        cur_sum = np.sum(array[unique_val == ind2cluster])
+        sum_list.append(cur_sum)
+    return sorted(sum_list, reverse=True)
+
+def calibrate_energies(true, pred, slope=None, intercept=None, return_plot=False):
+    def func(x, slope, intercept):
+        return x * slope + intercept
+
+    vary_slope = slope is None
+    slope_val = 0 if vary_slope else slope
+    vary_intercept = intercept is None
+    intercept_val = 0 if vary_intercept else intercept
+
+    model = Model(func)
+    model.set_param_hint('slope', value=slope_val, vary=vary_slope)
+    model.set_param_hint('intercept', value=intercept_val, vary=vary_intercept)
+    result = model.fit(true, x=pred)
+
+    sorting_permutation = np.argsort(pred)
+    if return_plot:
+        df = pd.DataFrame({'True Energy': true[sorting_permutation],
+                           'Fit': result.best_fit[sorting_permutation],
+                           'Cluster Energy': pred[sorting_permutation]})
+        fig = px.line(df, x='Cluster Energy', y=['True Energy', 'Fit'],
+                      title=f'Calibration - {len(true)} energies considered')
+        return result, fig
+    else:
+        return result
 
 def get_sum_per_island(array, threshold=0):
     first_ind = None
@@ -22,13 +60,19 @@ def get_sum_per_island(array, threshold=0):
 
     return sigfiground(sum_list), ind2cluster
 
-
-def sigfiground(array, ndigits=3):
-    rounded_array = np.full_like(array, -1)
-    for ind, val in enumerate(array):
-        rounded_array[ind] = sigfig.round(val, ndigits)
-
-    return rounded_array
+def sigfiground(x, ndigits=3):
+    if type(x) is dict:
+        return {key: sigfig.round(value, 2) for key, value in x.items()}
+    elif hasattr(x, '__iter__'):
+        rounded_array = np.full_like(x, -1)
+        for ind, val in enumerate(x):
+            try:
+                rounded_array[ind] = sigfig.round(val, ndigits)
+            except:
+                print()
+        return rounded_array
+    else:
+        return sigfig.round(x, ndigits)
 
 def get_random_string(length):
     # choose from all lowercase letter

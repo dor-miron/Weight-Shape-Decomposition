@@ -15,7 +15,7 @@ def get_plotly_layout(rows=1, cols=1):
         font=dict(color='rgb(220,220,220)',
                   size=28),
         height=500 * rows, width=1100 * cols,
-        coloraxis=dict(colorscale='viridis'),
+        # coloraxis=dict(colorscale='viridis'),
     )
     return plotly_layout
 
