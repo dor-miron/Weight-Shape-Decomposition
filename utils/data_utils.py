@@ -36,7 +36,7 @@ class Dataset:
         for event_id in calo.keys():
             for loc, value in calo[event_id].items():
                 calo[event_id][loc] = value * 1000
-            energies[event_id] = (energy * 1000 for energy in energies)
+            energies[event_id] = tuple(energy * 1000 for energy in energies[event_id])
 
         for event_id in calo.keys():
             new_event_id = self.event_full_key(dataset_name, event_id)

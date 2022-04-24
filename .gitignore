@@ -1,4 +1,5 @@
 /Parzen_results/
+/data
 /venv/
 *.png
 .idea/

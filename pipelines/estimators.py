@@ -61,56 +61,72 @@ class IsolationEstimator(BaseEstimator):
 
 
 class IslandEstimator(BaseEstimator):
-    def __init__(self, raw_threshold=0.001, cluster_threshold=1e-5):
-        self.raw_threshold = raw_threshold
+    def __init__(self, dep_2d_threshold=0, tower_threshold=0, cluster_threshold=0):
+        self.dep_2d_threshold = dep_2d_threshold
+        self.tower_threshold = tower_threshold
         self.cluster_threshold = cluster_threshold
+
+        self.NO_CLUSTER = -1
+
+        self.raw_1d_ = None
+        self.filtered_data_1d_ = None
+        self.ind2cluster_ = None
+        self.cluster_count_ = None
+
+        self._sum_per_cluster = None
 
     def fit(self, x, y):
         pass
 
-    def predict_one(self, event, return_raw_1d=False, return_filtered_1d=False):
-        NO_CLUSTER = -1
-        raw_data = convert_to_array_and_expand(event, t=1)
-        filtered_data = deepcopy(raw_data)
-        filtered_data[raw_data < self.raw_threshold] = 0
-        filtered_data_1d = np.array(filtered_data).sum(axis=2).sum(axis=1)
+    def predict_one(self, event):
+        raw_3d = convert_to_array_and_expand(event, t=1)
+        raw_2d = raw_3d.sum(axis=2)
+        self.raw_1d_ = raw_2d.sum(axis=1)
 
-        ind2cluster = np.full_like(filtered_data_1d, NO_CLUSTER)
-        cluster_count = 0
-        indices_sorted_by_value = [ind for ind, val in sorted(enumerate(filtered_data_1d), key=lambda x: x[1],
+        filtered_data_2d = np.copy(raw_2d)
+        filtered_data_2d[raw_2d < self.dep_2d_threshold] = 0
+        self.filtered_data_1d_ = filtered_data_2d.sum(axis=1)
+
+        self.ind2cluster_ = np.full_like(self.filtered_data_1d_, self.NO_CLUSTER)
+        self.cluster_count_ = 0
+        indices_sorted_by_value = [ind for ind, val in sorted(enumerate(self.filtered_data_1d_), key=lambda x: x[1],
                                                               reverse=True)]
         for cur_ind in indices_sorted_by_value:
-            if filtered_data_1d[cur_ind] < self.cluster_threshold:
+            if self.filtered_data_1d_[cur_ind] <= self.tower_threshold:
                 continue
-            if ind2cluster[cur_ind] == NO_CLUSTER:
-                ind2cluster[cur_ind] = cluster_count
-                cluster_count += 1
+            if self.ind2cluster_[cur_ind] == self.NO_CLUSTER:
+                self.ind2cluster_[cur_ind] = self.cluster_count_
+                self.cluster_count_ += 1
             for nei_ind in [cur_ind - 1, cur_ind + 1]:
                 try:
-                    if ind2cluster[nei_ind] == NO_CLUSTER:
-                        ind2cluster[nei_ind] = ind2cluster[cur_ind]
+                    if self.ind2cluster_[nei_ind] == self.NO_CLUSTER:
+                        self.ind2cluster_[nei_ind] = self.ind2cluster_[cur_ind]
                 except IndexError:
                     continue
 
-        outputs = [ind2cluster, cluster_count]
-        if return_raw_1d:
-            outputs.append(np.array(raw_data).sum(axis=2).sum(axis=1))
-        if return_filtered_1d:
-            outputs.append(filtered_data_1d)
-        return outputs
-
-    def predict(self, x):
-        pred_n_list = list()
-        for ind, calo_event in enumerate(x):
-            _, cluster_count = self.predict_one(calo_event)
-            pred_n_list.append(cluster_count)
-        return np.array(pred_n_list)
+        for cluster_num in self.get_unique_clusters():
+            cur_cluster_mask = self.ind2cluster_ == cluster_num
+            cur_sum = self.raw_1d_[cur_cluster_mask].sum()
+            if cur_sum < self.cluster_threshold:
+                self.ind2cluster_[cur_cluster_mask] = self.NO_CLUSTER
+                self.cluster_count_ -= 1
 
     @staticmethod
     def score(y_true, y_pred):
         total = len(y_true)
         correct = np.sum(np.array(y_true) == np.array(y_pred))
         return correct / float(total)
+
+    @property
+    def sum_per_cluster(self):
+        if self._sum_per_cluster is None:
+            sum_list = [np.sum(self.raw_1d_[unique_val == self.ind2cluster_])
+                        for unique_val in self.get_unique_clusters()]
+            self._sum_per_cluster = sorted(sum_list, reverse=True)
+        return self._sum_per_cluster
+
+    def get_unique_clusters(self):
+        return np.unique(self.ind2cluster_[self.ind2cluster_ != self.NO_CLUSTER])
 
 
 def main_sklearn():

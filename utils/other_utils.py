@@ -6,17 +6,7 @@ import numpy as np
 import sigfig
 import plotly.express as px
 
-def get_sum_per_cluster(array, ind2cluster, ignore_values=(-1,)):
-    unique_array = np.unique(ind2cluster)
-    sum_list = list()
-    for unique_val in unique_array:
-        if unique_val in ignore_values:
-            continue
-        cur_sum = np.sum(array[unique_val == ind2cluster])
-        sum_list.append(cur_sum)
-    return sorted(sum_list, reverse=True)
-
-def calibrate_energies(true, pred, slope=None, intercept=None, return_plot=False):
+def calibrate_energies(true, measured, slope=None, intercept=None, return_plot=False):
     def func(x, slope, intercept):
         return x * slope + intercept
 
@@ -28,15 +18,14 @@ def calibrate_energies(true, pred, slope=None, intercept=None, return_plot=False
     model = Model(func)
     model.set_param_hint('slope', value=slope_val, vary=vary_slope)
     model.set_param_hint('intercept', value=intercept_val, vary=vary_intercept)
-    result = model.fit(true, x=pred)
+    result = model.fit(true, x=measured)
 
-    sorting_permutation = np.argsort(pred)
+    predicted = result.best_fit
+    sorter = np.argsort(true)
     if return_plot:
-        df = pd.DataFrame({'True Energy': true[sorting_permutation],
-                           'Fit': result.best_fit[sorting_permutation],
-                           'Cluster Energy': pred[sorting_permutation]})
-        fig = px.line(df, x='Cluster Energy', y=['True Energy', 'Fit'],
+        fig = px.line(x=true[sorter], y=[true[sorter], predicted[sorter]],
                       title=f'Calibration - {len(true)} energies considered')
+        fig.update_layout(dict(xaxis_title='True', yaxis_title='Predicted'))
         return result, fig
     else:
         return result
