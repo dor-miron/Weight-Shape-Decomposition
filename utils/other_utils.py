@@ -5,6 +5,8 @@ from lmfit.models import LinearModel, Model
 import numpy as np
 import sigfig
 import plotly.express as px
+import plotly.graph_objects as go
+
 
 def calibrate_energies(true, measured, slope=None, intercept=None, return_plot=False):
     def func(x, slope, intercept):
@@ -23,12 +25,43 @@ def calibrate_energies(true, measured, slope=None, intercept=None, return_plot=F
     predicted = result.best_fit
     sorter = np.argsort(true)
     if return_plot:
-        fig = px.line(x=true[sorter], y=[true[sorter], predicted[sorter]],
-                      title=f'Calibration - {len(true)} energies considered')
-        fig.update_layout(dict(xaxis_title='True', yaxis_title='Predicted'))
+        fig = go.Figure()
+        fig.add_scatter(x=true[sorter], y=true[sorter], name='True')
+        fig.add_scatter(x=true[sorter], y=predicted[sorter], mode='markers', name='Reconstructed')
+        fig.update_traces(hovertemplate='%{x}')
+        fig.update_layout(dict(title=f'Calibration - {len(true)} energies considered',
+                               xaxis_title='True', yaxis_title='Reconstructed',
+                               hovermode='x unified'))
         return result, fig
     else:
         return result
+
+
+def order_of_magnitude(val):
+    return int(np.floor(np.log10(val)))
+
+def log_histogram(x, **kwargs):
+    start_oom, stop_oom = order_of_magnitude(min(x)), order_of_magnitude(max(x))
+    bins = np.logspace(start=start_oom, stop=stop_oom + 1, num=(stop_oom - start_oom + 1) * 10)
+    hist = np.histogram(x, bins=bins)
+    height_list = hist[0]
+    bins_middle = (bins[1:] + bins[:-1]) / 2.0
+    bins_width = (bins[1:] -bins[:-1]) / 2.0
+    fig = px.bar(x=bins_middle, y=height_list, log_x=True, **kwargs)
+
+    point_list = list()
+    point_list.append((bins[0], 0))
+    for i, cur_y in enumerate(height_list):
+        point_list.append((bins[i], cur_y))
+        point_list.append((bins[i + 1], cur_y))
+    point_list.append((bins[-1], 0))
+    x, y = zip(*point_list)
+    fig.add_scatter(x=x, y=y, mode='lines', hoverinfo='skip')
+
+    fig.update_xaxes(ticks='outside', tickmode='array', tickvals=sigfiground(bins))
+    # fig.update_layout(dict(xaxis=dict(gridcolor="#FFFFFF")))
+
+    return fig
 
 def get_sum_per_island(array, threshold=0):
     first_ind = None
@@ -49,6 +82,7 @@ def get_sum_per_island(array, threshold=0):
 
     return sigfiground(sum_list), ind2cluster
 
+
 def sigfiground(x, ndigits=3):
     if type(x) is dict:
         return {key: sigfig.round(value, 2) for key, value in x.items()}
@@ -63,8 +97,14 @@ def sigfiground(x, ndigits=3):
     else:
         return sigfig.round(x, ndigits)
 
+
 def get_random_string(length):
     # choose from all lowercase letter
     letters = string.ascii_lowercase
     result_str = ''.join(random.choice(letters) for i in range(length))
     return result_str
+
+
+if __name__ == '__main__':
+    vals = np.abs(np.random.normal(scale=1, size=10000)) + 1
+    log_histogram(vals).show()

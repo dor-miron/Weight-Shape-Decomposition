@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 from scipy.signal import find_peaks
 from utils import EcalDataIO
+from utils.data_utils import energy_to_x
 
 
 def psy(x, y, z, data, d_space, sigma):
@@ -256,18 +257,6 @@ def convert_to_array_and_expand(calo_event, t=1):
         d_tens[t * x, t * y, t * z] = value
 
     return d_tens
-
-
-def energy_to_x(e):
-    e = np.array(e)
-    a, b, c = 0.2, 684.2, 41.63
-    return a * (b / e - c)
-
-
-def x_to_energy(x):
-    x = np.array(x)
-    a, b, c = 0.2, 684.2, 41.63
-    return a*b / (x + a*c)
 
 
 def main():

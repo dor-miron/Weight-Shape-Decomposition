@@ -1,5 +1,6 @@
 /Parzen_results/
 /data
+/tyuta
 /venv/
 *.png
 .idea/
