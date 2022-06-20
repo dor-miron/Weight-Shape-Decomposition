@@ -112,6 +112,9 @@ class Dataset:
 
     """ GETTERS """
 
+    def get_random_event_id(self):
+        return np.random.choice(list(self.keys()))
+
     def get_event_true_n(self, event):
         return len(self.energies_dict[event])
 
@@ -161,12 +164,13 @@ class Dataset:
 
     def get_min_distance_histogram(self):
         min_dist_dict = self.get_min_dist_dict()
-        fig = px.histogram(x=min_dist_dict)
+        fig = px.histogram(x=min_dist_dict, title='Minimum distance histogram')
+        fig.update_layout(dict(xaxis_title='Min dx (mm)', yaxis_title='Count'))
         return fig
 
     def get_min_dist_vs_n_scatter(self):
-        fig = px.scatter(x=self.get_true_n_dict(), y=self.get_min_dist_dict())
-        fig.update_layout(dict(xaxis_title='True N', yaxis_title='Min delta X'))
+        fig = px.scatter(x=self.get_true_n_dict(), y=self.get_min_dist_dict(), title='Minimum distance VS. True N')
+        fig.update_layout(dict(xaxis_title='True N', yaxis_title='Min dx (mm)'))
         return fig
 
     """ OTHER """

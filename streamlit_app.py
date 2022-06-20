@@ -10,8 +10,8 @@ DS5 = 'FL=5'
 DS8 = 'FL=8'
 DS_SINGLE_10GEV = 'Single - 10 Gev'
 
-DEFAULT_MAX_N_VALUE = None
-DEFAULT_MIN_DIST = 5.5
+DEFAULT_MAX_N_VALUE = 110
+DEFAULT_MIN_DIST = None
 
 MENU_OPTIONS = ['Nothing', 'Dataset exploration', 'Event exploration']
 DEFAULT_MENU_INDEX = 1
@@ -54,7 +54,7 @@ with times_agg('Filter by number of particles'):
 
 with times_agg('Filter by minimal distance'):
     min_dist = sth.checkbox_with_number_input(st.sidebar, 'Min Distance (mm)', step=0.01, min_value=0.0,
-                                              default=0.0, value=DEFAULT_MIN_DIST)
+                                              default=0.0, value=DEFAULT_MIN_DIST, key='MINDISTFILT')
     dataset = dataset.filter_by_distance(min_dist, inplace=False)
 
 n_events_filtered = dataset.__len__()

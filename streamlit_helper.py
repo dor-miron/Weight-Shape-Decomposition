@@ -1,6 +1,7 @@
 import numpy as np
 from streamlit import bootstrap
 import streamlit as st
+from streamlit.delta_generator import DeltaGenerator
 import plotly.graph_objects as go
 import plotly.express as px
 
@@ -35,7 +36,7 @@ def my_plotly_chart(where, fig):
     where.plotly_chart(fig)
     where.button("Show in browser", on_click=fig.show, key=get_random_string(8))
 
-def checkbox_with_number_input(where, label, default=float('inf'), **kwargs):
+def checkbox_with_number_input(where: DeltaGenerator, label, default=float('inf'), **kwargs):
     if 'value' in kwargs and 'check_value' not in kwargs:
         kwargs['check_value'] = False if kwargs['value'] is None else kwargs['value']
         if not kwargs['check_value']:
@@ -43,11 +44,23 @@ def checkbox_with_number_input(where, label, default=float('inf'), **kwargs):
 
     cols = where.columns([1, 6])
     check_value = kwargs.pop('check_value', False)
-    disabled = not cols[0].checkbox('', check_value)
+    disabled = not cols[0].checkbox('', check_value, key=kwargs.get('key', None))
     kwargs['disabled'] = disabled
     max = cols[1].number_input(label + (' (Disabled)' if disabled else ''),
                                **kwargs)
     return default if disabled else max
+
+def wrap_streamlit_function(func, name, value=False, times_agg=None, add_sep=True):
+    is_show = st.sidebar.checkbox(f'Show {name}', value=value)
+    if is_show:
+        st.header(name)
+        if times_agg is None:
+            func()
+        else:
+            with times_agg(name):
+                func()
+    if add_sep:
+        st.sidebar.text(LINE_SEPARATION)
 
 
 if __name__ == '__main__':

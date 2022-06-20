@@ -11,6 +11,9 @@ from plotly import express as px
 from streamlit_helper import LINE_SEPARATION, get_plotly_layout
 from pipelines.estimators import IslandEstimator
 from utils.other_utils import sigfiground
+import streamlit_helper as sth
+
+CLUSTER_THRESHOLD_VALUE = 15.0
 
 DEFAULT_KERNEL_VALUE = 7
 RAW_THRESHOLD_DEFAULT = 0.000
@@ -36,7 +39,7 @@ def event_exploration(dataset, times_agg):
         event_cols = st.sidebar.columns(2)
         chosen_n = event_cols[0].selectbox('Select N', options=unique_n_list, index=3)
         chosen_n_event_list = event_id_array[n_list == chosen_n]
-        event_id = event_cols[1].selectbox('Select event', options=chosen_n_event_list,
+        event_id = event_cols[1].selectbox('Select event', options=sorted(chosen_n_event_list),
                                            format_func=event2label)
         calo_event, energy_event = calo_dict[event_id], energies_dict[event_id]
         true_x_values = energy_to_x(energy_event)
@@ -48,7 +51,7 @@ def event_exploration(dataset, times_agg):
         raw_2d = raw_data.sum(axis=1)
         fig = px.imshow(raw_2d.T, origin='lower', title='Raw data')
         for x_val in true_x_values:
-            fig.add_vline(x=x_val, line_width=2, line_color='black', line_dash='dash')
+            fig.add_vline(x=x_val, line_width=2, line_color='white', line_dash='dash')
         fig.update_layout(get_plotly_layout(1, 1))
         st.plotly_chart(fig)
 
@@ -114,73 +117,73 @@ def event_exploration(dataset, times_agg):
         fig = px.line(line_df, x=line_df.index, y='raw_1d')
         fig.update_layout(get_plotly_layout(1, 1))
         st.plotly_chart(fig)
+    sth.wrap_streamlit_function(show_qc, 'Quantum clustering', value=False, times_agg=times_agg)
 
-    is_show_qc = st.sidebar.checkbox('Show Quantum clustering', value=False)
-    if is_show_qc:
-        with times_agg('Quantum clustering'):
-            show_qc()
+    def island_clustering():
+        cluster_threshold_value = sth.checkbox_with_number_input(
+            st.sidebar, 'Min Rec Energy', default=0, value=CLUSTER_THRESHOLD_VALUE, key='clust_thresh')
 
-    # """ PLOT """
-    st.sidebar.text(LINE_SEPARATION)
+        estimator = IslandEstimator(cluster_threshold=cluster_threshold_value)
+        estimator.predict_one(calo_event)
+        plotly_df = pd.DataFrame(
+            {'Energy Deposition': estimator.raw_1d_, 'Cluster Number': estimator.ind2cluster_})
 
-    with times_agg('Islands clustering'):
-        st.header('Islands clustering')
-        is_show_1d_tbc = st.sidebar.checkbox('Show TB clustering', value=True)
-        if is_show_1d_tbc:
-            st_cols = st.columns(2)
-            island_estimator = IslandEstimator(cluster_threshold=st.sidebar.number_input("Cluster Threshold", value=0))
-            island_estimator.predict_one(calo_event)
-            plotly_df = pd.DataFrame(
-                {'Energy Deposition': island_estimator.raw_1d_, 'Cluster Number': island_estimator.ind2cluster_})
-            fig = px.bar(plotly_df, x=plotly_df.index, y='Energy Deposition', color='Cluster Number')
-            fig.update_layout(get_plotly_layout(1, 1))
-            st_cols[0].plotly_chart(fig)
+        st_cols = st.columns(2)
+        fig = px.bar(plotly_df, x=plotly_df.index, y='Energy Deposition', color='Cluster Number')
+        fig.update_layout(get_plotly_layout(1, 1))
+        st_cols[0].plotly_chart(fig)
 
-            sorted_energies = sigfiground(island_estimator.sum_per_cluster, 3)
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(y=sorted_energies, text=sorted_energies, mode="markers+text",
-                                     textposition="top center"))
-            fig.update_layout(get_plotly_layout())
-            st_cols[1].plotly_chart(fig)
+        sorted_energies = sigfiground(estimator.sum_per_cluster, 3)
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(y=sorted_energies, text=sorted_energies, mode="markers+text",
+                                 textposition="top center"))
+        fig.update_layout(get_plotly_layout())
+        st_cols[1].plotly_chart(fig)
 
-    with times_agg('1D Gauss fit'):
-        st.header('1D Gauss fit')
-        is_show_1d_fit = st.sidebar.checkbox('Show 1D fit', value=False)
-        if is_show_1d_fit:
-            gauss_model, params = get_n_1d_gaussians_model(data_to_fit, x_axis, true_n, guess=True)
-            # gauss_single, params = GaussianModel()
-            model_result = gauss_model.fit(
-                data_to_fit, params=params, x=x_axis, method='leastsq'
-            )
-            best_fit = pd.DataFrame({'best_fit': model_result.best_fit,
-                                     'data_2_fit': data_to_fit})
-            fig = px.line(best_fit, x=best_fit.index, y=['data_2_fit', 'best_fit'])
-            fig.update_layout(get_plotly_layout(2, 2))
-            st.plotly_chart(fig)
+        estimator.calc_calibrated_energies(lambda x: x * 85)
+        st.header(sigfiground(estimator.energies_list, ndigits=6))
+        st.header(f'Predicted: {len(estimator.energies_list)}')
 
-    with times_agg('Show gradient Clustering'):
-        show_gd_clustering = st.sidebar.checkbox('Show GD Clustering', value=False)
-        if show_gd_clustering:
-            cluster_by_gradient_descent = st.cache(cluster_by_gradient_descent)
-            clustered_array = cluster_by_gradient_descent(-V.sum(axis=1))
+        fig = estimator.get_fig_cluster_to_position_compare()
+        fig.update_layout(get_plotly_layout())
+        sth.my_plotly_chart(st, fig)
 
-            hm = partial(go.Heatmap, coloraxis='coloraxis1')
-            fig = make_subplots(1, 1)
-            fig.add_trace(hm(z=clustered_array.T), 1, 1)
-            fig.update_layout(get_plotly_layout())
-            st.plotly_chart(fig)
+    sth.wrap_streamlit_function(island_clustering, 'Island Clustering', value=True, times_agg=times_agg)
 
-    with times_agg('Show Z Line'):
-        show_z_line = st.sidebar.checkbox('Show Z Line', value=False)
-        if show_z_line:
-            z_line = st.sidebar.slider('Z Line', min_value=0, max_value=30, step=1, value=10)
-            peaks_x, peaks_y, chosen_line = count_clusters_by_z_line(PxS, z_value=z_line)
-            line_df = pd.DataFrame({'line': chosen_line}).reset_index()
-            peaks_df = pd.DataFrame({'peaks_x': peaks_x, 'peaks_y': peaks_y})
-            line_chart = alt.Chart(line_df).mark_line().encode(
-                x='index',
-                y='line'
-            )
-            peaks_chart = alt.Chart(peaks_df).mark_point().encode(x='peaks_x', y='peaks_y')
-            chart = line_chart + peaks_chart
-            st.altair_chart(chart)
+    def gauss_fit_1d():
+        gauss_model, params = get_n_1d_gaussians_model(data_to_fit, x_axis, true_n, guess=True)
+        # gauss_single, params = GaussianModel()
+        model_result = gauss_model.fit(
+            data_to_fit, params=params, x=x_axis, method='leastsq'
+        )
+        best_fit = pd.DataFrame({'best_fit': model_result.best_fit,
+                                 'data_2_fit': data_to_fit})
+        fig = px.line(best_fit, x=best_fit.index, y=['data_2_fit', 'best_fit'])
+        fig.update_layout(get_plotly_layout(2, 2))
+        st.plotly_chart(fig)
+    sth.wrap_streamlit_function(gauss_fit_1d, '1D Gauss fit', value=False, times_agg=times_agg)
+
+    def gradient_clustering():
+        cluster_by_gradient_descent = st.cache(cluster_by_gradient_descent)
+        clustered_array = cluster_by_gradient_descent(-V.sum(axis=1))
+
+        hm = partial(go.Heatmap, coloraxis='coloraxis1')
+        fig = make_subplots(1, 1)
+        fig.add_trace(hm(z=clustered_array.T), 1, 1)
+        fig.update_layout(get_plotly_layout())
+        st.plotly_chart(fig)
+    sth.wrap_streamlit_function(gradient_clustering, 'Gradient Clustering', value=False, times_agg=times_agg)
+
+    def z_line():
+        z_line = st.sidebar.slider('Z Line', min_value=0, max_value=30, step=1, value=10)
+        peaks_x, peaks_y, chosen_line = count_clusters_by_z_line(PxS, z_value=z_line)
+        line_df = pd.DataFrame({'line': chosen_line}).reset_index()
+        peaks_df = pd.DataFrame({'peaks_x': peaks_x, 'peaks_y': peaks_y})
+        line_chart = alt.Chart(line_df).mark_line().encode(
+            x='index',
+            y='line'
+        )
+        peaks_chart = alt.Chart(peaks_df).mark_point().encode(x='peaks_x', y='peaks_y')
+        chart = line_chart + peaks_chart
+        st.altair_chart(chart)
+    sth.wrap_streamlit_function(z_line, 'Z Line', value=False, times_agg=times_agg)
